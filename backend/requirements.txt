@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-dotenv
+supabase
+google-genai
+apscheduler
+scipy
+reportlab
+pydantic
+requests
