@@ -225,20 +225,3 @@ def generate_hinglish_advisory(location_name: str, current_aqi: int, forecast_tr
         return f"Good news! Aaj {location_name} ki air quality kafi acchi hai. Outdoor walk aur baaki activities ke liye badhiya din hai!"
 
 
-if __name__ == "__main__":
-    from db import get_table
-    import json
-
-    readings = get_table("readings")
-
-    print(f"Number of readings: {len(readings)}")
-
-    if readings:
-        station_id = readings[0]["station_id"]
-        print(f"Testing station: {station_id}")
-
-        forecast = forecast_24h_aqi(station_id)
-
-        print(json.dumps(forecast, indent=2))
-    else:
-        print("No readings found.")
