@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 
 from ingest import ingest_job
 from routes import add_routes_a
+from violation_tracker import add_violation_tracker_routes
+from legal_advisory import add_legal_advisory_routes
 
 # LAKSHITA'S ROUTER IMPORTS (Person B)
 # We assume Lakshita has her own `add_routes_b` function.
@@ -19,16 +21,14 @@ except ImportError:
 async def lifespan(app: FastAPI):
     # Startup: Start APScheduler
     scheduler = BackgroundScheduler()
-    scheduler.add_job(ingest_job, 'interval', minutes=15)
+    from datetime import datetime
+    scheduler.add_job(ingest_job, 'interval', minutes=15, next_run_time=datetime.now())
     scheduler.start()
-    
-    # Run once on startup
-    ingest_job()
     
     yield
     
     # Shutdown
-    scheduler.shutdown()
+    scheduler.shutdown(wait=False)
 
 app = FastAPI(title="VayuSetu Backend", lifespan=lifespan)
 
@@ -54,6 +54,10 @@ add_routes_a(app)
 
 # Add Routes from Person B (Lakshita)
 add_routes_b(app)
+
+# Additional Features
+add_violation_tracker_routes(app)
+add_legal_advisory_routes(app)
 
 if __name__ == "__main__":
     import uvicorn

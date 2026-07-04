@@ -24,3 +24,14 @@ Thumbs.db
 # Logs and databases
 *.log
 *.sqlite3
+
+# Node.js dependencies and builds
+node_modules/
+dist/
+build/
+.eslintcache
+package-lock.json.log
+.parcel-cache/
+.next/
+out/
+.nuxt/

@@ -28,18 +28,22 @@ def estimate_co2_output(source: dict, contribution_pct: float, duration_hours: f
         "equivalent_trees_needed": int(co2_kg / 21)
     }
 
-def get_city_co2_summary(all_sources: list, all_fingerprints: list) -> dict:
-    """Aggregate across all sources."""
+def get_city_co2_summary(all_sources: list, all_fingerprints: list, contribution_map: dict = None) -> dict:
+    """Aggregate across all sources using real Gaussian plume contributions where available."""
     total_kg = 0
     source_totals = []
     
     for src in all_sources:
-        # Placeholder 100% contribution to estimate total potential output
-        output = estimate_co2_output(src, 100.0)
+        src_id = src.get("id")
+        # Use real plume contribution if available, else fall back to 100% (total potential)
+        pct = contribution_map.get(src_id, 100.0) if contribution_map else 100.0
+        output = estimate_co2_output(src, pct)
         total_kg += output["co2_kg_today"]
         source_totals.append({
+            "source_id": src_id,
             "source_name": src.get("name"),
-            "co2_tonnes": output["co2_tonnes_today"]
+            "co2_tonnes": output["co2_tonnes_today"],
+            "contribution_pct": round(pct, 2)
         })
         
     source_totals.sort(key=lambda x: x["co2_tonnes"], reverse=True)

@@ -11,12 +11,21 @@ STATIONS = [
     {"id": "delhi_punjabi_bagh", "name": "Punjabi Bagh, Delhi", "lat": 28.6738, "lng": 77.1309, "city": "Delhi"},
     {"id": "noida_sector_125", "name": "Sector 125, Noida", "lat": 28.5447, "lng": 77.3230, "city": "Noida"},
     {"id": "gurugram_vikas_sadan", "name": "Vikas Sadan, Gurugram", "lat": 28.4503, "lng": 77.0253, "city": "Gurugram"},
+    {"id": "delhi_dwarka_sec8", "name": "Sector 8, Dwarka", "lat": 28.5710, "lng": 77.0719, "city": "Delhi"},
+    {"id": "delhi_okhla_ph2", "name": "Okhla Phase 2, Delhi", "lat": 28.5307, "lng": 77.2730, "city": "Delhi"},
+    {"id": "delhi_bawana", "name": "Bawana, Delhi", "lat": 28.7944, "lng": 77.0543, "city": "Delhi"},
+    {"id": "delhi_rohini", "name": "Rohini, Delhi", "lat": 28.7299, "lng": 77.1066, "city": "Delhi"},
+    {"id": "delhi_igi_airport", "name": "IGI Airport (T3), Delhi", "lat": 28.5562, "lng": 77.1000, "city": "Delhi"},
+    {"id": "faridabad_sec11", "name": "Sector 11, Faridabad", "lat": 28.3800, "lng": 77.3100, "city": "Faridabad"},
+    {"id": "ghaziabad_indirapuram", "name": "Indirapuram, Ghaziabad", "lat": 28.6415, "lng": 77.3714, "city": "Ghaziabad"},
+    {"id": "greater_noida_kp5", "name": "Knowledge Park V, Greater Noida", "lat": 28.5900, "lng": 77.4600, "city": "Greater Noida"},
+    {"id": "gurugram_sec51", "name": "Sector 51, Gurugram", "lat": 28.4310, "lng": 77.0680, "city": "Gurugram"},
 ]
 
 def fetch_aqicn_data(lat, lng):
     url = f"https://api.waqi.info/feed/geo:{lat};{lng}/?token={AQICN_API_KEY}"
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             if data.get("status") == "ok":
@@ -33,7 +42,7 @@ def fetch_aqicn_data(lat, lng):
 def fetch_weather_data(lat, lng):
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={OPENWEATHER_API_KEY}&units=metric"
     try:
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             return {
