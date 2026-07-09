@@ -113,10 +113,20 @@ def get_harm_score(
             lat = float(zone_lat)
             lng = float(zone_lng)
             rad = float(radius_km) if radius_km is not None else 5.0
-            aqi = float(current_aqi) if current_aqi is not None else 180.0
+            aqi = float(current_aqi) if current_aqi is not None else _find_closest_aqi(lat, lng)
 
-        # Exposure rule: hours_exposed = 8 if AQI > 150 else 0
-        hours_exposed = 8.0 if aqi > 150.0 else 0.0
+        # Proportional exposure scale based on AQI severity
+        # Old binary (> 150 → 8, else 0) was zeroing out all moderate-pollution zones
+        if aqi <= 50:
+            hours_exposed = 1.0   # Good
+        elif aqi <= 100:
+            hours_exposed = 2.0   # Moderate
+        elif aqi <= 150:
+            hours_exposed = 4.0   # Unhealthy for sensitive groups
+        elif aqi <= 200:
+            hours_exposed = 8.0   # Unhealthy
+        else:
+            hours_exposed = 12.0  # Very unhealthy / hazardous
         
         # Query vulnerable zones
         vulnerable_zones = get_table("vulnerable_zones")

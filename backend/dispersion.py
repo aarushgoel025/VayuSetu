@@ -61,14 +61,25 @@ def calculate_contribution(source_lat, source_lng, source_type, wind_speed_kmh, 
     if x < 1:
         x = 1
         
+    # Effective stack height (H) by source_type in meters
+    H_map = {
+        "thermal_plant": 150.0,
+        "industrial": 50.0,
+        "construction": 10.0,
+        "traffic_corridor": 2.0
+    }
+    H = H_map.get(source_type, 10.0)
+    
     # Pasquill-Gifford class D
     sigma_y = 0.08 * x * (1 + 0.0001 * x) ** -0.5
     sigma_z = 0.06 * x * (1 + 0.0015 * x) ** -0.5
     
-    z = 2.0 # receptor height
+    z = 2.0 # receptor height (breathing level)
     
     term_y = math.exp(- (y**2) / (2 * sigma_y**2))
-    term_z = math.exp(- (z**2) / (2 * sigma_z**2))
+    
+    # term_z with ground reflection (standard Gaussian Plume implementation)
+    term_z = math.exp(- ((z - H)**2) / (2 * sigma_z**2)) + math.exp(- ((z + H)**2) / (2 * sigma_z**2))
     
     C = (Q / (2 * math.pi * u * sigma_y * sigma_z)) * term_y * term_z
     
