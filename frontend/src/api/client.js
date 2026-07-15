@@ -88,6 +88,93 @@ export async function getAccountabilityFeed() {
   return fetchWithMockFallback('/api/accountability-feed', mockAccountabilityFeed);
 }
 
+export async function getHealthAdvisory(stationId, lat, lng) {
+  return fetchWithMockFallback(
+    `/api/health-advisory?station_id=${stationId}&lat=${lat}&lng=${lng}`,
+    {
+      station_id: stationId,
+      station_name: 'This Station',
+      current_aqi: 180,
+      forecast_trend: 'stable — no major change expected in the next 6 hours',
+      english: 'Air quality is Moderate. People with respiratory conditions, elderly, and children should reduce outdoor exposure. Keep windows closed and avoid heavy outdoor exercise.',
+      hinglish: 'Aaj yahan ki hawa thodi kharab hai. Bachon aur buzurgon ko bahar jaane se bachna chahiye, aur bahar nikalte waqt N95 mask zaroor pehnein. Ghar ki khidkiyan band rakhein.',
+    }
+  );
+}
+
+export async function getSatelliteHotspots() {
+  return fetchWithMockFallback('/api/satellite-hotspots', {
+    hotspots: [
+      { lat: 28.6310, lng: 77.4725, brightness: 341.2, confidence: 'high',    confidence_level: 3, frp: 12.4, satellite: 'VIIRS', acq_date: '2025-07-10' },
+      { lat: 28.5083, lng: 77.3024, brightness: 328.8, confidence: 'nominal', confidence_level: 2, frp: 7.1,  satellite: 'VIIRS', acq_date: '2025-07-10' },
+      { lat: 28.7706, lng: 77.0384, brightness: 356.4, confidence: 'high',    confidence_level: 3, frp: 18.9, satellite: 'VIIRS', acq_date: '2025-07-10' },
+      { lat: 28.4501, lng: 77.0263, brightness: 312.1, confidence: 'low',     confidence_level: 1, frp: 3.2,  satellite: 'VIIRS', acq_date: '2025-07-10' },
+      { lat: 28.6731, lng: 77.4700, brightness: 339.6, confidence: 'nominal', confidence_level: 2, frp: 9.5,  satellite: 'VIIRS', acq_date: '2025-07-10' },
+    ],
+    count: 5,
+    source: 'NASA FIRMS VIIRS SNPP NRT',
+    region: 'NCR',
+  });
+}
+
+export async function getStationPanel(stationId, lat, lng) {
+  const mockPanelData = {
+    station_id: stationId,
+    station_name: 'Anand Vihar',
+    current_aqi: 312,
+    aqi_label: 'Severe',
+    pm25: 145,
+    pm10: 210,
+    fingerprint: [
+      { source_id: 's1', source_name: 'Badarpur Thermal Power Plant', source_type: 'thermal_plant', contribution_pct: 45 },
+      { source_id: 's2', source_name: 'Okhla Industrial Area', source_type: 'industrial', contribution_pct: 35 },
+      { source_id: 's4', source_name: 'ITO Traffic Corridor', source_type: 'traffic_corridor', contribution_pct: 15 },
+    ],
+    attribution_explanation: 'Prevailing westerly winds are carrying emissions from Badarpur Thermal Power Plant and Okhla Industrial Area directly towards this monitoring station, accounting for over 80% of the local particulate matter. Construction dust from Central Vista adds a background contribution during afternoon hours.',
+    forecast_chart: Array.from({ length: 24 }).map((_, i) => {
+      let baseAqi = 150;
+      if ((i >= 8 && i <= 10) || (i >= 18 && i <= 21)) baseAqi += 100 + Math.random() * 50;
+      else baseAqi += Math.random() * 30 - 15;
+      return { hour: `${i.toString().padStart(2, '0')}:00`, aqi: Math.round(baseAqi) };
+    }),
+    forecast_trend: 'worsening — AQI rising over the past hours',
+    forecast_narrative: 'Air quality is expected to worsen through the evening peak traffic hours, with AQI likely crossing 350 by 8 PM. Residents are strongly advised to limit outdoor exposure after 6 PM.',
+    hindi_advisory: 'आज आनंद विहार में वायु प्रदूषण का स्तर अत्यंत गंभीर (AQI: 312) है। बच्चों और बुजुर्गों को बाहर जाने से बिल्कुल बचना चाहिए, और यदि आवश्यक हो तो N95 मास्क अवश्य पहनें। घर की खिड़कियाँ बंद रखें और एयर प्यूरीफायर का उपयोग करें।',
+    english_advisory: 'SEVERE air pollution alert at Anand Vihar (AQI: 312). Stay indoors with windows and doors closed. Avoid all outdoor activities. Hospitals and schools should suspend outdoor programmes immediately.',
+    harm: {
+      harm_score: 42000,
+      children_exposed: 12500,
+      patients_exposed: 3400,
+      affected_zones: [
+        { name: 'Delhi Public School', type: 'school', population: 2000 },
+        { name: 'Max Super Speciality', type: 'hospital', population: 500 },
+        { name: 'Vasant Vihar Old Age Home', type: 'old_age_home', population: 150 },
+      ],
+    },
+    emissions: {
+      total_co2_tonnes_today: 8450,
+      trend: 'stable',
+      insight_text: 'This is equivalent to 1,758,333 cars being driven across NCR today.',
+      top_emitters: [
+        { source_id: 's5', source_name: 'Dadri Thermal Plant', co2_tonnes: 3200, contribution_pct: 38 },
+        { source_id: 's1', source_name: 'Badarpur Thermal', co2_tonnes: 2800, contribution_pct: 33 },
+        { source_id: 's2', source_name: 'Okhla Industrial', co2_tonnes: 850, contribution_pct: 10 },
+      ],
+    },
+    legal: {
+      citizen_rights_text: 'Under the Air (Prevention and Control of Pollution) Act 1981 and the Environment Protection Act 1986, every citizen has a constitutionally protected right to a clean and healthy environment. You are legally empowered to demand accountability from any entity whose emissions violate prescribed ambient air quality standards.',
+      complaint_guidance_text: 'File a formal complaint via the CPCB SAMEER app or through your State Pollution Control Board\'s online grievance portal. If unresolved after 60 days, petition the National Green Tribunal (NGT) under Section 14 of the NGT Act 2010 — no court fee is required.',
+      notice_status: 'issued',
+      relevant_authority: 'Central Pollution Control Board (CPCB)',
+      disclaimer: 'This is general informational guidance only and does not constitute legal advice.',
+    },
+  };
+  return fetchWithMockFallback(
+    `/api/station-panel?station_id=${stationId}&lat=${lat}&lng=${lng}`,
+    mockPanelData
+  );
+}
+
 export async function generateNotice(sourceId) {
   if (USE_MOCK_DATA) {
     await delay(1500); // Simulate heavy PDF generation

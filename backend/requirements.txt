@@ -8,3 +8,5 @@ scipy
 reportlab
 pydantic
 requests
+scikit-learn
+pandas

@@ -6,6 +6,7 @@ import HarmScoreCard from './HarmScoreCard';
 import LegalAdvisoryCard from './LegalAdvisoryCard';
 import EmissionsCard from './EmissionsCard';
 import ViolationHistoryPanel from './ViolationHistoryPanel';
+import HealthAdvisoryCard from './HealthAdvisoryCard';
 
 export default function SidePanel({ station, onClose }) {
   if (!station) return null;
@@ -36,6 +37,8 @@ export default function SidePanel({ station, onClose }) {
       </div>
       
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        {/* Health Advisory with EN/HI toggle — shown first for citizens */}
+        <HealthAdvisoryCard stationId={station.id} lat={station.lat} lng={station.lng} />
         <ForecastChart stationId={station.id} />
         <FingerprintList lat={station.lat} lng={station.lng} />
         <HarmScoreCard lat={station.lat} lng={station.lng} />

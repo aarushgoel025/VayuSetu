@@ -43,7 +43,7 @@ export default function ZoneMarker({ zone }) {
             Type: {zone.type.replace('_', ' ')}
           </div>
           <div className="text-[11px] font-bold text-tertiary mt-1">
-            Population: {Number(zone.population).toLocaleString()}
+            Population: {zone.population ? '~' + Number(zone.population).toLocaleString() : 'Data Unavailable'}
           </div>
         </div>
       </Popup>

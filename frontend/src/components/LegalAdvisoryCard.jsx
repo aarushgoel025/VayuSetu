@@ -1,24 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Scale } from 'lucide-react';
-import { getLegalAdvisory } from '../api/client';
 
-export default function LegalAdvisoryCard({ lat, lng }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    getLegalAdvisory(lat, lng)
-      .then(setData)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [lat, lng]);
-
-  if (loading) {
+/**
+ * LegalAdvisoryCard — now receives panelData from App.jsx.
+ * No longer makes its own API call — data comes from the unified
+ * /api/station-panel endpoint (legal text is now hardcoded on backend,
+ * no Gemini call needed).
+ */
+export default function LegalAdvisoryCard({ panelData, panelLoading, lat, lng }) {
+  if (panelLoading || !panelData) {
     return <div className="h-48 bg-white rounded-xl border border-outline-variant shadow-soft animate-pulse"></div>;
   }
 
-  if (!data) return null;
+  const data = panelData.legal || {};
 
   const getStatusBadge = (status) => {
     switch(status) {
@@ -36,7 +30,7 @@ export default function LegalAdvisoryCard({ lat, lng }) {
       <div className="flex justify-between items-center mb-3.5 border-b border-outline-variant/30 pb-2.5">
         <h3 className="text-sm font-bold uppercase tracking-wider text-on-surface flex items-center">
           <Scale className="w-4 h-4 mr-2 text-primary" />
-          Rights & Guidelines
+          Rights &amp; Guidelines
         </h3>
         {getStatusBadge(data.notice_status)}
       </div>

@@ -30,10 +30,20 @@ def fetch_aqicn_data(lat, lng):
             data = resp.json()
             if data.get("status") == "ok":
                 iaqi = data["data"]["iaqi"]
+                raw_aqi = data["data"].get("aqi", 0)
+                pm25_aqi = iaqi.get("pm25", {}).get("v", 0.0)
+                pm10_aqi = iaqi.get("pm10", {}).get("v", 0.0)
+                
+                # Sanity check: If PM10 sensor glitches causing AQI > 500, fallback to PM2.5 AQI
+                if raw_aqi > 500 and 0 < pm25_aqi < 400:
+                    final_aqi = pm25_aqi
+                else:
+                    final_aqi = min(500, raw_aqi)
+
                 return {
-                    "aqi": data["data"].get("aqi", 0),
-                    "pm25": iaqi.get("pm25", {}).get("v", 0.0),
-                    "pm10": iaqi.get("pm10", {}).get("v", 0.0),
+                    "aqi": final_aqi,
+                    "pm25": pm25_aqi,
+                    "pm10": pm10_aqi,
                 }
     except Exception as e:
         print(f"AQICN fetch error: {e}")

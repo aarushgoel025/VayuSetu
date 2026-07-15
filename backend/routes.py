@@ -120,6 +120,20 @@ def add_routes_a(app: FastAPI):
         summary["insight_text"] = insight_text
         return summary
 
+    @router.get("/station-panel")
+    def get_station_panel(station_id: str, lat: float, lng: float):
+        """
+        Unified endpoint that returns ALL data needed to render the station side panel.
+        ONE Gemini call (cached for 30 min) replaces the previous 5 separate calls:
+          - /api/attribution      (attribution_explanation)
+          - /api/forecast         (forecast_chart + forecast_narrative)
+          - /api/health-advisory  (hinglish_advisory + english_advisory)
+          - /api/legal-advisory   (legal — now hardcoded, no Gemini)
+          - /api/emissions-summary (emissions — now pure Python, no Gemini)
+        """
+        from station_panel import get_station_panel_data
+        return get_station_panel_data(station_id, lat, lng)
+
     app.include_router(router)
     
 # ---------------------------------------------------------
@@ -142,6 +156,82 @@ def add_routes_b(app: FastAPI):
             if "predicted_aqi" in item:
                 item["aqi"] = item.pop("predicted_aqi")
         return forecast_data
+
+    @router.get("/health-advisory")
+    def get_health_advisory(station_id: str, lat: float, lng: float):
+        """
+        Returns both English and Hinglish health advisories for a given station.
+        The frontend can switch between the two without making a second API call.
+        """
+        # 1. Get the station's real current AQI
+        latest_readings = query_latest_per_station()
+        stations = get_table("stations")
+        station = next((s for s in stations if s["id"] == station_id), None)
+        station_name = station.get("name", "This area") if station else "This area"
+
+        current_aqi = 150  # safe fallback
+        readings_map = {r["station_id"]: r for r in latest_readings}
+        if station_id in readings_map:
+            current_aqi = int(readings_map[station_id].get("aqi", 150) or 150)
+
+        # 2. Determine a simple forecast trend string
+        try:
+            forecast = forecast_24h_aqi(station_id)
+            if forecast and len(forecast) >= 6:
+                first_aqi = forecast[0].get("aqi") or forecast[0].get("predicted_aqi", current_aqi)
+                last_aqi  = forecast[5].get("aqi") or forecast[5].get("predicted_aqi", current_aqi)
+                if last_aqi > first_aqi + 20:
+                    trend = "worsening — AQI expected to rise significantly in the next 6 hours"
+                elif last_aqi < first_aqi - 20:
+                    trend = "improving — AQI expected to drop over the next 6 hours"
+                else:
+                    trend = "stable — no major change expected in the next 6 hours"
+            else:
+                trend = "stable"
+        except Exception:
+            trend = "stable"
+
+        # 3. Rule-based English advisory (no Gemini call needed)
+        if current_aqi <= 50:
+            english_text = (
+                f"Air quality at {station_name} is Good (AQI: {current_aqi}). "
+                "Conditions are ideal for outdoor activities. Enjoy the fresh air!"
+            )
+        elif current_aqi <= 100:
+            english_text = (
+                f"Air quality at {station_name} is Satisfactory (AQI: {current_aqi}). "
+                "Most people can go outdoors normally. Sensitive individuals should limit prolonged exertion."
+            )
+        elif current_aqi <= 200:
+            english_text = (
+                f"Air quality at {station_name} is Moderate (AQI: {current_aqi}). "
+                "People with respiratory conditions, elderly, and children should reduce outdoor exposure. "
+                "Keep windows closed and avoid heavy outdoor exercise."
+            )
+        elif current_aqi <= 300:
+            english_text = (
+                f"Air quality at {station_name} is Poor (AQI: {current_aqi}). "
+                "Everyone may experience health effects. Avoid outdoor activities, especially near traffic. "
+                "Wear an N95 mask if going out is unavoidable."
+            )
+        else:
+            english_text = (
+                f"SEVERE air pollution alert at {station_name} (AQI: {current_aqi}). "
+                "Stay indoors with windows and doors closed. Avoid all outdoor activities. "
+                "Hospitals and schools should suspend outdoor programmes immediately."
+            )
+
+        # 4. Hinglish advisory (Gemini or rule-based fallback)
+        hinglish_text = generate_hinglish_advisory(station_name, current_aqi, trend)
+
+        return {
+            "station_id": station_id,
+            "station_name": station_name,
+            "current_aqi": current_aqi,
+            "forecast_trend": trend,
+            "english": english_text,
+            "hinglish": hinglish_text,
+        }
 
     @router.get("/harm-score")
     def get_harm_score(lat: float, lng: float, radius_km: float = 2.0):

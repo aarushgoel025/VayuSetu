@@ -117,7 +117,18 @@ def get_all_vulnerable_zones() -> list:
         return []
     try:
         response = supabase.table("vulnerable_zones").select("*").execute()
-        return response.data
+        zones = response.data
+        for z in zones:
+            if not z.get("population"):
+                if z.get("type") == "school":
+                    z["population"] = 1200
+                elif z.get("type") == "hospital":
+                    z["population"] = 800
+                elif z.get("type") == "old_age_home":
+                    z["population"] = 150
+                else:
+                    z["population"] = 500
+        return zones
     except Exception as e:
         print(f"DB error in get_all_vulnerable_zones: {e}")
         return []

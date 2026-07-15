@@ -99,11 +99,11 @@ export const mockEmissionsSummary = {
   trend: "+5% vs yesterday",
   insight_text: "Thermal power generation accounts for 65% of today's CO2 emissions in the NCR region.",
   top_emitters: [
-    { name: "Dadri Thermal Plant", tonnes: 3200 },
-    { name: "Badarpur Thermal", tonnes: 2800 },
-    { name: "Okhla Industrial", tonnes: 850 },
-    { name: "Bawana Industrial", tonnes: 600 },
-    { name: "Faridabad Sector", tonnes: 450 }
+    { source_id: "s14", source_name: "Dadri Thermal Plant", co2_tonnes: 3200, contribution_pct: 38 },
+    { source_id: "s1", source_name: "Badarpur Thermal", co2_tonnes: 2800, contribution_pct: 33 },
+    { source_id: "s2", source_name: "Okhla Industrial", co2_tonnes: 850, contribution_pct: 10 },
+    { source_id: "s5", source_name: "Bawana Industrial", co2_tonnes: 600, contribution_pct: 7 },
+    { source_id: "s11", source_name: "Okhla Waste-to-Energy", co2_tonnes: 450, contribution_pct: 5 }
   ]
 };
 

@@ -6,9 +6,10 @@ export default function LayerToggle({ layerState, setLayerState }) {
   };
 
   const layers = [
-    { key: 'stations', label: 'AQI Stations' },
-    { key: 'sources', label: 'Emission Sources' },
-    { key: 'vulnerableZones', label: 'Vulnerable Zones' },
+    { key: 'stations',           label: 'AQI Stations' },
+    { key: 'sources',            label: 'Emission Sources' },
+    { key: 'vulnerableZones',    label: 'Vulnerable Zones' },
+    { key: 'satelliteHotspots', label: '🛰 Satellite Hotspots (NASA)' },
   ];
 
   return (

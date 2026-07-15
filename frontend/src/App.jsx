@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import MapView from './components/MapView';
 import LayerToggle from './components/LayerToggle';
 import AccountabilityFeed from './components/AccountabilityFeed';
@@ -8,28 +8,30 @@ import HarmScoreCard from './components/HarmScoreCard';
 import LegalAdvisoryCard from './components/LegalAdvisoryCard';
 import EmissionsCard from './components/EmissionsCard';
 import CitizenDashboard from './components/CitizenDashboard';
-import { 
-  getStations, 
-  getSources, 
+import LandingSequence from './components/LandingSequence';
+import {
+  getStations,
+  getSources,
   getVulnerableZones,
-  generateNotice 
+  generateNotice,
+  getStationPanel
 } from './api/client';
-import { 
-  ShieldAlert, 
-  Search, 
-  Bell, 
-  User, 
-  LayoutDashboard, 
-  Map, 
-  Radio, 
-  Scale, 
-  FileText, 
-  Settings, 
-  HelpCircle, 
-  TrendingUp, 
-  Plus, 
-  Download, 
-  Check, 
+import {
+  ShieldAlert,
+  Search,
+  Bell,
+  User,
+  LayoutDashboard,
+  Map,
+  Radio,
+  Scale,
+  FileText,
+  Settings,
+  HelpCircle,
+  TrendingUp,
+  Plus,
+  Download,
+  Check,
   Wind,
   X,
   FileCode,
@@ -51,15 +53,44 @@ export default function App() {
   const [stations, setStations] = useState([]);
   const [sources, setSources] = useState([]);
   const [zones, setZones] = useState([]);
+  // panelData holds the unified response from /api/station-panel
+  // ONE Gemini call per station click instead of 5 separate calls
+  const [panelData, setPanelData] = useState(null);
+  const [panelLoading, setPanelLoading] = useState(false);
   const [layerState, setLayerState] = useState({
     stations: true,
     sources: true,
-    vulnerableZones: false
+    vulnerableZones: true,
+    satelliteHotspots: true,
   });
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Helper for dynamic wind speed
+  const getWindDirection = (deg) => {
+    if (deg >= 337.5 || deg < 22.5) return 'N';
+    if (deg >= 22.5 && deg < 67.5) return 'NE';
+    if (deg >= 67.5 && deg < 112.5) return 'E';
+    if (deg >= 112.5 && deg < 157.5) return 'SE';
+    if (deg >= 157.5 && deg < 202.5) return 'S';
+    if (deg >= 202.5 && deg < 247.5) return 'SW';
+    if (deg >= 247.5 && deg < 292.5) return 'W';
+    if (deg >= 292.5 && deg < 337.5) return 'NW';
+    return 'N';
+  };
+
+  const displayWind = useMemo(() => {
+    if (selectedStation && selectedStation.wind_speed != null) {
+      return `${getWindDirection(selectedStation.wind_deg || 0)} ${selectedStation.wind_speed.toFixed(1)} km/h`;
+    } else if (stations.length > 0) {
+      const avgSpeed = stations.reduce((acc, st) => acc + (st.wind_speed || 0), 0) / stations.length;
+      return `AVG ${avgSpeed.toFixed(1)} km/h`;
+    }
+    return '-- km/h';
+  }, [selectedStation, stations]);
+
   const [generatingFor, setGeneratingFor] = useState(null);
   const [successFor, setSuccessFor] = useState(null);
-  
+
   // Reports Modal State
   const [isReportOpen, setIsReportOpen] = useState(false);
 
@@ -67,7 +98,7 @@ export default function App() {
     const fetchData = async () => {
       try {
         const [stData, srcData, zoneData] = await Promise.all([
-          getStations(), 
+          getStations(),
           getSources(),
           getVulnerableZones()
         ]);
@@ -80,6 +111,28 @@ export default function App() {
     };
     fetchData();
   }, []);
+
+  // Fetch unified panel data when station changes — ONE call replaces 5
+  useEffect(() => {
+    setPanelLoading(true);
+    setPanelData(null);
+    
+    // If no station is selected, show city-wide view (Delhi/NCR)
+    const stationId = selectedStation ? selectedStation.id : 'city_wide';
+    const lat = selectedStation ? selectedStation.lat : 28.6139;
+    const lng = selectedStation ? selectedStation.lng : 77.2090;
+
+    getStationPanel(stationId, lat, lng)
+      .then(data => {
+        // Customize the title for city-wide view
+        if (!selectedStation && data) {
+          data.station_name = 'NCR (City-wide)';
+        }
+        setPanelData(data);
+      })
+      .catch(err => console.error('Panel data fetch error:', err))
+      .finally(() => setPanelLoading(false));
+  }, [selectedStation?.id]);
 
   // Handle client-side hash routing
   useEffect(() => {
@@ -106,7 +159,7 @@ export default function App() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      
+
       setSuccessFor(sourceId);
       setTimeout(() => setSuccessFor(null), 3000);
     } catch (err) {
@@ -127,12 +180,12 @@ export default function App() {
   }
 
   // Calculate dynamic stats
-  const cityAvgAqi = stations.length > 0 
-    ? Math.round(stations.reduce((sum, s) => sum + s.aqi, 0) / stations.length) 
+  const cityAvgAqi = stations.length > 0
+    ? Math.round(stations.reduce((sum, s) => sum + s.aqi, 0) / stations.length)
     : 142;
 
   const currentAqi = selectedStation ? selectedStation.aqi : cityAvgAqi;
-  
+
   const getAqiCategory = (aqi) => {
     if (aqi <= 50) return { label: 'Good', style: 'bg-green-100 text-green-800' };
     if (aqi <= 100) return { label: 'Moderate', style: 'bg-yellow-100 text-yellow-800' };
@@ -143,27 +196,32 @@ export default function App() {
 
   const aqiCat = getAqiCategory(currentAqi);
 
-  const worstSource = sources.length > 0 
-    ? sources[0] 
+  const worstSource = sources.length > 0
+    ? sources[0]
     : { name: 'Dadri Thermal Plant', activity_level: 'high' };
 
   // Filter stations & sources by search query
   const filteredStations = stations.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className="w-screen h-screen flex flex-col overflow-hidden bg-background text-on-surface">
+    <div className="h-screen w-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory bg-slate-950 text-slate-100 scroll-smooth">
+      <LandingSequence />
+      
+      {/* 5. Main Dashboard Section */}
+      <section className="h-screen w-full snap-start relative">
+        <div className="w-screen h-screen flex flex-col overflow-hidden bg-background text-on-surface">
       {/* Top Warning Announcement Alert Bar */}
       <AccountabilityFeed />
-      
+
       {/* Header/Top Navigation */}
       <header className="h-16 border-b border-outline-variant bg-white flex justify-between items-center px-6 z-30 flex-shrink-0">
         <div className="flex items-center gap-4">
           <span className="text-xl font-bold tracking-tight text-primary">VayuSetu</span>
           <div className="relative ml-8 hidden md:block">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-            <input 
-              type="text" 
-              placeholder="Search monitoring stations..." 
+            <input
+              type="text"
+              placeholder="Search monitoring stations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-surface-container-low border-none rounded-lg pl-9 pr-4 py-1.5 text-xs w-64 focus:ring-2 focus:ring-primary focus:bg-white transition-all text-on-surface placeholder:text-outline"
@@ -174,7 +232,7 @@ export default function App() {
                   <div className="p-2 text-xs text-secondary italic">No stations found</div>
                 ) : (
                   filteredStations.map(st => (
-                    <button 
+                    <button
                       key={st.id}
                       onClick={() => {
                         setSelectedStation(st);
@@ -191,16 +249,16 @@ export default function App() {
             )}
           </div>
         </div>
-        
+
         <nav className="flex items-center gap-6">
           <div className="hidden md:flex gap-6">
             <button onClick={() => setActiveTab('dashboard')} className={`text-xs tracking-wider font-semibold uppercase ${activeTab === 'dashboard' ? 'text-primary border-b-2 border-primary pb-1' : 'text-secondary hover:text-primary transition-colors'}`}>Dashboard</button>
             <button onClick={() => setActiveTab('explorer')} className={`text-xs tracking-wider font-semibold uppercase ${activeTab === 'explorer' ? 'text-primary border-b-2 border-primary pb-1' : 'text-secondary hover:text-primary transition-colors'}`}>Explorer</button>
             <button onClick={() => setActiveTab('reports')} className={`text-xs tracking-wider font-semibold uppercase ${activeTab === 'reports' ? 'text-primary border-b-2 border-primary pb-1' : 'text-secondary hover:text-primary transition-colors'}`}>Report Center</button>
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => handleViewChange('citizen')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary text-primary hover:bg-primary hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
             >
@@ -216,7 +274,7 @@ export default function App() {
           </div>
         </nav>
       </header>
-      
+
       <div className="flex-1 flex overflow-hidden">
         {/* Side Navigation panel */}
         <aside className="w-sidebar-width border-r border-outline-variant bg-white flex flex-col py-4 z-20 flex-shrink-0">
@@ -231,47 +289,47 @@ export default function App() {
               </div>
             </div>
           </div>
-          
+
           <nav className="flex-1 px-3 space-y-1">
-            <button 
-              onClick={() => setActiveTab('dashboard')} 
+            <button
+              onClick={() => setActiveTab('dashboard')}
               className={`w-full text-left rounded-lg flex items-center gap-3 px-3 py-2 text-xs transition-all ${activeTab === 'dashboard' ? 'bg-primary/10 text-primary font-bold' : 'text-secondary hover:bg-surface-container-low font-medium'}`}
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Dashboard</span>
             </button>
-            <button 
-              onClick={() => setActiveTab('explorer')} 
+            <button
+              onClick={() => setActiveTab('explorer')}
               className={`w-full text-left rounded-lg flex items-center gap-3 px-3 py-2 text-xs transition-all ${activeTab === 'explorer' ? 'bg-primary/10 text-primary font-bold' : 'text-secondary hover:bg-surface-container-low font-medium'}`}
             >
               <Map className="w-4 h-4" />
               <span>Map Explorer</span>
             </button>
-            <button 
-              onClick={() => setActiveTab('sensors')} 
+            <button
+              onClick={() => setActiveTab('sensors')}
               className={`w-full text-left rounded-lg flex items-center gap-3 px-3 py-2 text-xs transition-all ${activeTab === 'sensors' ? 'bg-primary/10 text-primary font-bold' : 'text-secondary hover:bg-surface-container-low font-medium'}`}
             >
               <Radio className="w-4 h-4" />
               <span>Sensors List</span>
             </button>
-            <button 
-              onClick={() => setActiveTab('enforcement')} 
+            <button
+              onClick={() => setActiveTab('enforcement')}
               className={`w-full text-left rounded-lg flex items-center gap-3 px-3 py-2 text-xs transition-all ${activeTab === 'enforcement' ? 'bg-primary/10 text-primary font-bold' : 'text-secondary hover:bg-surface-container-low font-medium'}`}
             >
               <Scale className="w-4 h-4" />
               <span>Enforcement</span>
             </button>
-            <button 
-              onClick={() => setActiveTab('reports')} 
+            <button
+              onClick={() => setActiveTab('reports')}
               className={`w-full text-left rounded-lg flex items-center gap-3 px-3 py-2 text-xs transition-all ${activeTab === 'reports' ? 'bg-primary/10 text-primary font-bold' : 'text-secondary hover:bg-surface-container-low font-medium'}`}
             >
               <FileText className="w-4 h-4" />
               <span>Reports</span>
             </button>
           </nav>
-          
+
           <div className="px-4 py-3 mt-auto border-t border-outline-variant/30 space-y-4">
-            <button 
+            <button
               onClick={() => handleGenerateNotice(worstSource.id || 's1', worstSource.name)}
               disabled={generatingFor !== null}
               className="w-full bg-primary text-white text-xs font-bold py-2.5 rounded-lg shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -287,10 +345,10 @@ export default function App() {
             </button>
           </div>
         </aside>
-        
+
         {/* Main Content Area */}
         <main className="flex-grow bg-background overflow-y-auto p-6 z-10">
-          
+
           {/* TAB 1: DASHBOARD VIEW */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
@@ -311,7 +369,7 @@ export default function App() {
                     <span>+12% from previous hour</span>
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-xl border border-outline-variant shadow-soft flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Worst Source</span>
@@ -322,21 +380,30 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-xl border border-outline-variant shadow-soft flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Population at Risk</span>
                     <p className="text-4xl font-extrabold text-on-surface mt-1">1.2M</p>
-                    <p className="text-xs text-secondary mt-1 font-semibold">Active health advisories: 3</p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-secondary font-bold uppercase">Children</span>
+                        <span className="text-sm font-bold text-on-surface">820k</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-secondary font-bold uppercase">Seniors</span>
+                        <span className="text-sm font-bold text-on-surface">380k</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-xl border border-outline-variant shadow-soft flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Active Violations</span>
                     <p className="text-4xl font-extrabold text-error mt-1">24</p>
-                    <button 
-                      onClick={() => setActiveTab('enforcement')} 
+                    <button
+                      onClick={() => setActiveTab('enforcement')}
                       className="text-primary text-[11px] font-bold mt-2 hover:underline flex items-center gap-1"
                     >
                       <span>Review cases</span>
@@ -345,22 +412,22 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Map & Detail Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                 {/* Map Canvas (8/12) */}
                 <div className="lg:col-span-8 relative bg-white rounded-xl shadow-soft border border-outline-variant overflow-hidden min-h-[500px] flex flex-col">
                   <div className="flex-1 relative z-0">
-                    <MapView 
-                      layerState={layerState} 
+                    <MapView
+                      layerState={layerState}
                       onStationSelect={setSelectedStation}
                     />
-                    
+
                     {/* Floating Layers toggle panel */}
                     <div className="absolute top-4 right-4 z-[1000]">
                       <LayerToggle layerState={layerState} setLayerState={setLayerState} />
                     </div>
-                    
+
                     {/* Floating wind speed data overlay */}
                     <div className="absolute top-4 left-4 z-[1000] glass-panel px-4 py-2.5 rounded-xl shadow-soft">
                       <div className="flex items-center gap-3">
@@ -369,12 +436,12 @@ export default function App() {
                           <span className="text-[9px] font-bold text-secondary uppercase mt-0.5">Wind</span>
                         </div>
                         <div>
-                          <p className="font-mono text-xs font-bold text-on-surface">NW 14km/h</p>
+                          <p className="font-mono text-xs font-bold text-on-surface">{displayWind}</p>
                           <p className="text-[9px] text-secondary font-medium">Carrying particulate</p>
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Floating Legend Overlay */}
                     <div className="absolute bottom-4 left-4 z-[1000] glass-panel px-3 py-2 rounded-xl shadow-soft">
                       <div className="flex flex-col gap-1 w-32">
@@ -388,7 +455,7 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Intelligence Detail Panel (4/12) */}
                 <div className="lg:col-span-4 flex flex-col gap-6 overflow-y-auto max-h-[500px] pr-1">
                   {/* Selected Station indicator / City-wide Indicator banner */}
@@ -400,7 +467,7 @@ export default function App() {
                       </h4>
                     </div>
                     {selectedStation && (
-                      <button 
+                      <button
                         onClick={() => setSelectedStation(null)}
                         className="p-1 rounded-full hover:bg-surface-container-low transition-colors text-secondary hover:text-on-surface"
                         title="Reset to City-wide View"
@@ -410,11 +477,11 @@ export default function App() {
                     )}
                   </div>
 
-                  <ForecastChart stationId={selectedStation ? selectedStation.id : 'delhi_anand_vihar'} />
-                  <FingerprintList lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
-                  <HarmScoreCard lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
-                  <LegalAdvisoryCard lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
-                  <EmissionsCard lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
+                  <ForecastChart panelData={panelData} panelLoading={panelLoading} stationId={selectedStation ? selectedStation.id : 'delhi_anand_vihar'} />
+                  <FingerprintList panelData={panelData} panelLoading={panelLoading} lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
+                  <HarmScoreCard panelData={panelData} panelLoading={panelLoading} lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
+                  <LegalAdvisoryCard panelData={panelData} panelLoading={panelLoading} lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
+                  <EmissionsCard panelData={panelData} panelLoading={panelLoading} lat={selectedStation ? selectedStation.lat : 28.6} lng={selectedStation ? selectedStation.lng : 77.2} />
                 </div>
               </div>
             </div>
@@ -424,19 +491,19 @@ export default function App() {
           {activeTab === 'explorer' && (
             <div className="w-full h-[calc(100vh-120px)] relative bg-white rounded-xl shadow-soft border border-outline-variant overflow-hidden flex flex-col">
               <div className="flex-grow relative z-0">
-                <MapView 
-                  layerState={layerState} 
+                <MapView
+                  layerState={layerState}
                   onStationSelect={(st) => {
                     setSelectedStation(st);
                     setActiveTab('dashboard');
                   }}
                 />
-                
+
                 {/* Floating Layers toggle panel */}
                 <div className="absolute top-4 right-4 z-[1000]">
                   <LayerToggle layerState={layerState} setLayerState={setLayerState} />
                 </div>
-                
+
                 {/* Floating Map Legend Overlay */}
                 <div className="absolute bottom-4 left-4 z-[1000] glass-panel px-4 py-3 rounded-xl shadow-soft">
                   <span className="text-[10px] font-bold text-secondary uppercase tracking-wider block mb-1.5">Air Quality Legend</span>
@@ -509,7 +576,7 @@ export default function App() {
                             {st.wind_speed} km/h @ {st.wind_deg}°
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button 
+                            <button
                               onClick={() => {
                                 setSelectedStation(st);
                                 setActiveTab('dashboard');
@@ -566,8 +633,8 @@ export default function App() {
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-1">
                                 {Array.from({ length: 5 }).map((_, i) => (
-                                  <div 
-                                    key={i} 
+                                  <div
+                                    key={i}
                                     className={`w-2 h-2 rounded-full ${i < violationCount ? 'bg-error' : 'bg-surface-container-highest'}`}
                                   />
                                 ))}
@@ -582,10 +649,10 @@ export default function App() {
                             <td className="px-6 py-4 text-right">
                               {successFor === src.id ? (
                                 <span className="inline-flex items-center text-green-700 text-xs font-bold uppercase px-3 py-1.5">
-                                  <Check className="w-3.5 h-3.5 mr-1" /> Notice Sent
+                                  <Check className="w-3.5 h-3.5 mr-1" /> Notice Downloaded
                                 </span>
                               ) : (
-                                <button 
+                                <button
                                   onClick={() => handleGenerateNotice(src.id, src.name)}
                                   disabled={generatingFor === src.id}
                                   className="bg-primary hover:brightness-110 text-white font-bold px-4 py-2 rounded-lg shadow-sm active:scale-95 transition-all text-xs inline-flex items-center gap-1.5 disabled:opacity-50"
@@ -619,7 +686,7 @@ export default function App() {
                   <h3 className="font-bold text-xl text-on-surface">Executive Air Quality Report</h3>
                   <p className="text-xs text-secondary mt-0.5">National Capital Region (NCR) • Generated on demand</p>
                 </div>
-                <button 
+                <button
                   onClick={() => alert("Report downloaded successfully in PDF format.")}
                   className="bg-primary text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-2 hover:brightness-110 transition-all"
                 >
@@ -646,10 +713,10 @@ export default function App() {
               <div className="space-y-4">
                 <h4 className="font-bold text-sm text-on-surface border-b border-outline-variant/30 pb-1.5">Executive Summary</h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
-                  During this assessment cycle, the citywide AQI remains elevated at an average reading of <b>{cityAvgAqi}</b>. 
+                  During this assessment cycle, the citywide AQI remains elevated at an average reading of <b>{cityAvgAqi}</b>.
                   Gaussian plume dispersion models estimate that local industrial hotspots—principally Badarpur and Dadri power generation yards—remain the dominant point-source contributors, carrying fine particulate downwind along the central secretariat traffic corridor.
                 </p>
-                
+
                 <h4 className="font-bold text-sm text-on-surface border-b border-outline-variant/30 pb-1.5 pt-2">Compliance Action Summary</h4>
                 <p className="text-xs text-on-surface-variant leading-relaxed">
                   A total of 14 notices were issued this week under Section 31A of the Air Act 1981. Four repeats have been registered, triggering active health warnings for downstream institutions. Particulate monitoring indicates Noida construction sites have initiated secondary mist cannons.
@@ -657,13 +724,13 @@ export default function App() {
               </div>
 
               <div className="flex justify-end gap-3 pt-6 border-t border-outline-variant/30">
-                <button 
+                <button
                   onClick={() => alert("Report printed successfully.")}
                   className="px-4 py-2 border border-outline-variant text-secondary font-bold rounded-lg text-xs hover:bg-surface-container-low transition-all"
                 >
                   Print Report
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     alert("Weekly scheduler configured.");
                   }}
@@ -677,6 +744,8 @@ export default function App() {
 
         </main>
       </div>
+        </div>
+      </section>
     </div>
   );
 }

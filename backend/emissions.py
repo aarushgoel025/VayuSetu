@@ -1,10 +1,3 @@
-from google import genai
-from config import GEMINI_API_KEY
-
-client = None
-if GEMINI_API_KEY:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-
 def estimate_co2_output(source: dict, contribution_pct: float, duration_hours: float = 24) -> dict:
     """Estimates CO2 based on emission factors."""
     factors = {
@@ -36,8 +29,12 @@ def get_city_co2_summary(all_sources: list, all_fingerprints: list, contribution
     
     for src in all_sources:
         src_id = src.get("id")
-        # Use real plume contribution if available, else fall back to 100% (total potential)
-        pct = contribution_map.get(src_id, 100.0) if contribution_map else 100.0
+        # Use real plume contribution if available.
+        # Default to 0.0 (not 100.0) — if a source isn't in the fingerprint,
+        # it means its plume is not reaching this location (upwind / too far).
+        pct = contribution_map.get(src_id, 0.0) if contribution_map else 100.0
+        if pct <= 0:
+            continue  # skip sources with zero contribution to this location
         output = estimate_co2_output(src, pct)
         total_kg += output["co2_kg_today"]
         source_totals.append({
@@ -52,29 +49,16 @@ def get_city_co2_summary(all_sources: list, all_fingerprints: list, contribution
     return {
         "total_co2_tonnes_today": round(total_kg / 1000, 2),
         "top_emitters": source_totals[:5],
-        "trend": "stable" # mock trend
+        "trend": "stable"
     }
 
 def generate_co2_insight_text(summary: dict) -> str:
-    """Gemini, temperature=0.4. One relatable comparison sentence."""
-    total_tonnes = summary.get('total_co2_tonnes_today', 0)
-    
-    if not client:
-        cars = int((total_tonnes * 1000) / (0.12 * 40))
-        return f"This is equivalent to {cars} cars being driven today."
-        
-    prompt = f"""
-    The city emitted {total_tonnes} tonnes of CO2 today.
-    Write exactly ONE relatable comparison sentence (e.g. equivalent to X cars driven today).
-    Use 0.12kg CO2/km and 40km average daily drive as the constant.
     """
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(temperature=0.4)
-        )
-        return response.text.strip()
-    except Exception as e:
-        cars = int((total_tonnes * 1000) / (0.12 * 40))
-        return f"This is equivalent to {cars} cars being driven today."
+    Pure-Python CO2 comparison — no Gemini call.
+    Formula: 0.12 kg CO2/km × 40 km average daily drive = 4.8 kg CO2/car/day.
+    NOTE: Gemini was removed here to save API credits. The output is identical
+    in quality since this was just a fixed-formula comparison sentence.
+    """
+    total_tonnes = summary.get('total_co2_tonnes_today', 0)
+    cars = int((total_tonnes * 1000) / (0.12 * 40))
+    return f"This local footprint is equivalent to {cars:,} cars being driven today."
