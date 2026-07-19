@@ -9,6 +9,8 @@ import LegalAdvisoryCard from './components/LegalAdvisoryCard';
 import EmissionsCard from './components/EmissionsCard';
 import CitizenDashboard from './components/CitizenDashboard';
 import LandingSequence from './components/LandingSequence';
+import Login from './components/Login';
+import { supabase } from './api/supabase';
 import {
   getStations,
   getSources,
@@ -47,6 +49,36 @@ export default function App() {
     }
     return 'authority';
   });
+
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async (message = null) => {
+    try {
+      await supabase.auth.signOut();
+      setSession(null);
+      if (message && typeof message === 'string') {
+        alert(message);
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'explorer', 'sensors', 'enforcement', 'reports'
   const [selectedStation, setSelectedStation] = useState(null);
@@ -114,10 +146,11 @@ export default function App() {
 
   // Fetch unified panel data when station changes — ONE call replaces 5
   useEffect(() => {
+    if (currentView !== 'authority' || !session) return;
+    
     setPanelLoading(true);
     setPanelData(null);
     
-    // If no station is selected, show city-wide view (Delhi/NCR)
     const stationId = selectedStation ? selectedStation.id : 'city_wide';
     const lat = selectedStation ? selectedStation.lat : 28.6139;
     const lng = selectedStation ? selectedStation.lng : 77.2090;
@@ -130,9 +163,14 @@ export default function App() {
         }
         setPanelData(data);
       })
-      .catch(err => console.error('Panel data fetch error:', err))
+      .catch(err => {
+        console.error('Panel data fetch error:', err);
+        if (err.message?.includes('401') || err.message?.toLowerCase().includes('unauthorized')) {
+          handleLogout('Your session has expired. Please sign in again.');
+        }
+      })
       .finally(() => setPanelLoading(false));
-  }, [selectedStation?.id]);
+  }, [selectedStation?.id, session, currentView]);
 
   // Handle client-side hash routing
   useEffect(() => {
@@ -178,6 +216,20 @@ export default function App() {
   if (currentView === 'citizen') {
     return <CitizenDashboard onViewSwitch={handleViewChange} />;
   }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center gap-4">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin"></div>
+        <p className="text-emerald-400 font-bold text-xs uppercase tracking-wider animate-pulse">Checking credentials...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login onLoginSuccess={(sess) => setSession(sess)} onViewSwitch={handleViewChange} />;
+  }
+
 
   // Calculate dynamic stats
   const cityAvgAqi = stations.length > 0
@@ -268,7 +320,7 @@ export default function App() {
             <button className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
               <Bell className="w-4 h-4" />
             </button>
-            <button className="p-2 rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
+            <button onClick={() => handleLogout()} className="p-2 rounded-full hover:bg-surface-container-low hover:text-red-500 transition-colors text-on-surface-variant" title="Log Out">
               <User className="w-4 h-4" />
             </button>
           </div>
@@ -328,7 +380,7 @@ export default function App() {
             </button>
           </nav>
 
-          <div className="px-4 py-3 mt-auto border-t border-outline-variant/30 space-y-4">
+          <div className="px-4 py-3 mt-auto border-t border-outline-variant/30 space-y-3">
             <button
               onClick={() => handleGenerateNotice(worstSource.id || 's1', worstSource.name)}
               disabled={generatingFor !== null}
@@ -342,6 +394,13 @@ export default function App() {
                   <span>Generate Notice</span>
                 </>
               )}
+            </button>
+            
+            <button
+              onClick={() => handleLogout()}
+              className="w-full bg-surface-container-high hover:bg-red-500/10 text-red-500 text-xs font-bold py-2 rounded-lg border border-outline-variant/40 hover:border-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+            >
+              <span>Log Out</span>
             </button>
           </div>
         </aside>

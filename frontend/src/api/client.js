@@ -12,24 +12,40 @@ import {
   mockAccountabilityFeed,
   mockVulnerableZones
 } from '../mockData/mock';
+import { supabase } from './supabase';
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-async function fetchWithMockFallback(endpoint, mockData) {
+async function fetchWithMockFallback(endpoint, mockData, options = {}) {
   if (USE_MOCK_DATA) {
     await delay(600); // Simulate network latency
     return mockData;
   }
   
-  const response = await fetch(`${API_URL}${endpoint}`);
+  const headers = { ...options.headers };
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+  } catch (err) {
+    console.warn("Could not retrieve Supabase session:", err);
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers
+  });
+
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
   return response.json();
 }
+
 
 export async function getStations() {
   return fetchWithMockFallback('/api/stations', mockStations);
@@ -188,9 +204,19 @@ export async function generateNotice(sourceId) {
     const byteArray = new Uint8Array(byteNumbers);
     return new Blob([byteArray], { type: 'application/pdf' });
   }
+  const headers = {};
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+  } catch (err) {
+    console.warn("Could not retrieve Supabase session:", err);
+  }
 
   const response = await fetch(`${API_URL}/api/generate-notice?source_id=${sourceId}`, {
-    method: 'POST'
+    method: 'POST',
+    headers
   });
   
   if (!response.ok) {
@@ -198,4 +224,18 @@ export async function generateNotice(sourceId) {
   }
   
   return response.blob();
+}
+
+export async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 }

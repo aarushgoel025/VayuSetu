@@ -1,4 +1,4 @@
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Depends
 from fastapi.responses import StreamingResponse
 import io
 
@@ -8,6 +8,7 @@ from notice_generator import generate_notice_pdf
 from emissions import estimate_co2_output, get_city_co2_summary, generate_co2_insight_text
 from forecast_agent import forecast_24h_aqi
 from harm_score import get_harm_score as calculate_harm_score
+from auth import get_current_user, require_authority_write
 
 def add_routes_a(app: FastAPI):
     """
@@ -43,7 +44,7 @@ def add_routes_a(app: FastAPI):
         return get_table("sources")
 
     @router.get("/attribution")
-    def get_attribution(lat: float, lng: float):
+    def get_attribution(lat: float, lng: float, user: dict = Depends(get_current_user)):
         sources = get_table("sources")
         # Default wind data in case readings are empty
         wind_speed = 15.0
@@ -64,7 +65,7 @@ def add_routes_a(app: FastAPI):
         }
 
     @router.post("/generate-notice")
-    def generate_notice(source_id: str):
+    def generate_notice(source_id: str, user: dict = Depends(require_authority_write)):
         pdf_bytes = generate_notice_pdf(source_id)
         
         return StreamingResponse(
@@ -74,7 +75,7 @@ def add_routes_a(app: FastAPI):
         )
 
     @router.get("/emissions")
-    def get_emissions(source_id: str, lat: float = None, lng: float = None):
+    def get_emissions(source_id: str, lat: float = None, lng: float = None, user: dict = Depends(get_current_user)):
         sources = get_table("sources")
         source = next((s for s in sources if s["id"] == source_id), None)
         if not source:
@@ -98,7 +99,7 @@ def add_routes_a(app: FastAPI):
         return estimate_co2_output(source, contribution_pct)
 
     @router.get("/emissions-summary")
-    def get_emissions_summary(lat: float = None, lng: float = None):
+    def get_emissions_summary(lat: float = None, lng: float = None, user: dict = Depends(get_current_user)):
         sources = get_table("sources")
 
         # Build fingerprint from Gaussian plume if a location is provided
@@ -121,7 +122,7 @@ def add_routes_a(app: FastAPI):
         return summary
 
     @router.get("/station-panel")
-    def get_station_panel(station_id: str, lat: float, lng: float):
+    def get_station_panel(station_id: str, lat: float, lng: float, user: dict = Depends(get_current_user)):
         """
         Unified endpoint that returns ALL data needed to render the station side panel.
         ONE Gemini call (cached for 30 min) replaces the previous 5 separate calls:
@@ -234,7 +235,7 @@ def add_routes_b(app: FastAPI):
         }
 
     @router.get("/harm-score")
-    def get_harm_score(lat: float, lng: float, radius_km: float = 2.0):
+    def get_harm_score(lat: float, lng: float, radius_km: float = 2.0, user: dict = Depends(get_current_user)):
         # Fetch real AQI from the nearest station so harm score reflects actual pollution
         latest_readings = query_latest_per_station()
         stations = get_table("stations")

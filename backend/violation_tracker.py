@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from db import supabase
+from auth import get_current_user
+
 
 def log_notice_issued(source_id: str, contribution_pct: float, people_exposed: int) -> None:
     """
@@ -120,9 +122,9 @@ def add_violation_tracker_routes(app: FastAPI):
     Registers the violation tracker endpoints to the FastAPI application.
     """
     @app.get("/api/violation-history")
-    def api_get_violation_history(source_id: str):
+    def api_get_violation_history(source_id: str, user: dict = Depends(get_current_user)):
         return get_violation_history(source_id)
         
     @app.get("/api/repeat-offenders")
-    def api_get_repeat_offenders():
+    def api_get_repeat_offenders(user: dict = Depends(get_current_user)):
         return get_repeat_offenders()
