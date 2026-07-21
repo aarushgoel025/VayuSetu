@@ -125,7 +125,6 @@ def _call_gemini_for_insights(
     fingerprint: list,
     forecast_trend: str,
     co2_tonnes: float,
-    harm_score: float,
     people_exposed: int,
 ) -> dict:
     """
@@ -160,7 +159,7 @@ STATION DATA:
 - Top pollution sources (Gaussian plume fingerprint): {json.dumps(top_sources)}
 - Forecast trend: {forecast_trend}
 - CO2 emitted today (NCR): {co2_tonnes} tonnes
-- Harm score: {harm_score} | People in vulnerable zones nearby: {people_exposed}
+- People in vulnerable zones nearby: {people_exposed}
 
 Return ONLY a valid JSON object with exactly these three keys (no markdown, no backticks, no extra text):
 {{
@@ -245,7 +244,7 @@ def get_station_panel_data(station_id: str, lat: float, lng: float) -> dict:
       "forecast_narrative": str,       # AI text  ┘
       "forecast_chart": [...],         # 24h chart data (no Gemini)
       "forecast_trend": str,           # trend label
-      "harm": { harm_score, children_exposed, patients_exposed, affected_zones },
+      "harm": { children_exposed, patients_exposed, affected_zones },
       "emissions": { total_co2_tonnes_today, top_emitters, insight_text },
       "legal": { citizen_rights_text, complaint_guidance_text, notice_status, relevant_authority, disclaimer },
     }
@@ -273,10 +272,9 @@ def get_station_panel_data(station_id: str, lat: float, lng: float) -> dict:
     wind_speed, wind_deg = _get_wind_averages()
     fingerprint = get_fingerprint(lat, lng, wind_speed, wind_deg, sources)
 
-    # ── 3. Harm score (pure Python, no Gemini) ────────────────────────────
+    # ── 3. Vulnerable population exposure (pure Python, no Gemini) ───────────
     if station_id == 'city_wide':
         harm_data = {
-            "harm_score": 450000,
             "people_exposed": 1200000,
             "children_exposed": 850000,
             "patients_exposed": 350000,
@@ -316,7 +314,6 @@ def get_station_panel_data(station_id: str, lat: float, lng: float) -> dict:
         fingerprint=fingerprint,
         forecast_trend=forecast_trend,
         co2_tonnes=co2_tonnes,
-        harm_score=harm_data.get("harm_score", 0),
         people_exposed=harm_data.get("people_exposed", 0),
     )
 

@@ -119,6 +119,8 @@ def get_all_vulnerable_zones() -> list:
         response = supabase.table("vulnerable_zones").select("*").execute()
         zones = response.data
         for z in zones:
+            if z.get("estimated_population") is not None:
+                z["population"] = int(z["estimated_population"])
             if not z.get("population"):
                 if z.get("type") == "school":
                     z["population"] = 1200

@@ -48,16 +48,6 @@ export const mockForecast = Array.from({ length: 24 }).map((_, i) => {
   };
 });
 
-export const mockHarmScore = {
-  harm_score: 4.2,
-  children_exposed: 12500,
-  patients_exposed: 3400,
-  affected_zones: [
-    { name: "Delhi Public School", type: "school", population: 2000 },
-    { name: "Max Super Speciality", type: "hospital", population: 500 },
-    { name: "Vasant Vihar Old Age Home", type: "old_age_home", population: 150 }
-  ]
-};
 
 export const mockLegalAdvisory = {
   citizen_rights_text: "Under the Air (Prevention and Control of Pollution) Act 1981 and the Environment Protection Act 1986, citizens have a fundamental right to a clean environment. You are legally empowered to seek accountability for hazardous emissions affecting your health and locality.",

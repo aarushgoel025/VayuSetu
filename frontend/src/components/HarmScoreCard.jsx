@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { ShieldAlert, Globe } from 'lucide-react';
+import { Users, Globe } from 'lucide-react';
 
 /**
- * HarmScoreCard — professional health advisory card with EN / हिं language toggle.
- * Reads from panelData prop (unified /api/station-panel endpoint).
- * English is shown by default; Hindi toggle switches to Devanagari text.
+ * VulnerablePopulationCard — shows exposed population counts (children, seniors,
+ * hospitals) and health advisory text with EN / हिं language toggle.
+ * Reads from panelData.harm (unified /api/station-panel endpoint).
+ * The advisory text is rule-based; population figures come from the DB.
  */
 export default function HarmScoreCard({ panelData, panelLoading, lat, lng }) {
   const [lang, setLang] = useState('en');
@@ -61,9 +62,9 @@ export default function HarmScoreCard({ panelData, panelLoading, lat, lng }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-on-surface-variant" />
+          <Users className="w-4 h-4 text-on-surface-variant" />
           <span className="text-xs font-bold text-on-surface uppercase tracking-wider">
-            Health Advisory
+            Vulnerable Population
           </span>
           <span className={`${cfg.badge} text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1`}>
             <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} inline-block`}></span>
@@ -120,7 +121,7 @@ export default function HarmScoreCard({ panelData, panelLoading, lat, lng }) {
         </div>
         <div className="bg-white/70 rounded-lg py-2.5 px-1 border border-white/80">
           <span className="text-xl font-bold text-on-surface block">
-            {(data.affected_zones || []).filter(z => z.type === 'hospital').length || 1}
+            {(data.affected_zones || []).filter(z => z.type === 'hospital').length}
           </span>
           <span className="text-[9px] text-secondary font-semibold uppercase tracking-wider mt-0.5 block">
             Hospitals

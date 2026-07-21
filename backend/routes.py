@@ -7,7 +7,6 @@ from dispersion import get_fingerprint, generate_attribution_explanation
 from notice_generator import generate_notice_pdf
 from emissions import estimate_co2_output, get_city_co2_summary, generate_co2_insight_text
 from forecast_agent import forecast_24h_aqi
-from harm_score import get_harm_score as calculate_harm_score
 from auth import get_current_user, require_authority_write
 
 def add_routes_a(app: FastAPI):
@@ -233,26 +232,6 @@ def add_routes_b(app: FastAPI):
             "english": english_text,
             "hinglish": hinglish_text,
         }
-
-    @router.get("/harm-score")
-    def get_harm_score(lat: float, lng: float, radius_km: float = 2.0, user: dict = Depends(get_current_user)):
-        # Fetch real AQI from the nearest station so harm score reflects actual pollution
-        latest_readings = query_latest_per_station()
-        stations = get_table("stations")
-        current_aqi = None
-        if stations and latest_readings:
-            readings_map = {r["station_id"]: r for r in latest_readings}
-            import math
-            best_dist = float("inf")
-            for s in stations:
-                s_lat, s_lng, s_id = s.get("lat"), s.get("lng"), s.get("id")
-                if s_lat is not None and s_lng is not None:
-                    dist = math.sqrt((float(s_lat) - lat) ** 2 + (float(s_lng) - lng) ** 2)
-                    r = readings_map.get(s_id)
-                    if dist < best_dist and r and r.get("aqi") is not None:
-                        best_dist = dist
-                        current_aqi = float(r["aqi"])
-        return calculate_harm_score(lat, lng, radius_km, current_aqi)
 
     @router.get("/accountability-feed")
     def get_accountability_feed():

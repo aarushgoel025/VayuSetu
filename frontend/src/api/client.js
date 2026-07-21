@@ -3,7 +3,6 @@ import {
   mockSources, 
   mockAttribution, 
   mockForecast, 
-  mockHarmScore, 
   mockLegalAdvisory, 
   mockViolationHistory, 
   mockRepeatOffenders, 
@@ -67,9 +66,6 @@ export async function getForecast(stationId) {
   return fetchWithMockFallback(`/api/forecast?station_id=${stationId}`, mockForecast);
 }
 
-export async function getHarmScore(lat, lng, radiusKm = 2.0) {
-  return fetchWithMockFallback(`/api/harm-score?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`, mockHarmScore);
-}
 
 export async function getLegalAdvisory(lat, lng, sourceId = null) {
   const url = sourceId 
@@ -158,7 +154,6 @@ export async function getStationPanel(stationId, lat, lng) {
     hindi_advisory: 'आज आनंद विहार में वायु प्रदूषण का स्तर अत्यंत गंभीर (AQI: 312) है। बच्चों और बुजुर्गों को बाहर जाने से बिल्कुल बचना चाहिए, और यदि आवश्यक हो तो N95 मास्क अवश्य पहनें। घर की खिड़कियाँ बंद रखें और एयर प्यूरीफायर का उपयोग करें।',
     english_advisory: 'SEVERE air pollution alert at Anand Vihar (AQI: 312). Stay indoors with windows and doors closed. Avoid all outdoor activities. Hospitals and schools should suspend outdoor programmes immediately.',
     harm: {
-      harm_score: 42000,
       children_exposed: 12500,
       patients_exposed: 3400,
       affected_zones: [
