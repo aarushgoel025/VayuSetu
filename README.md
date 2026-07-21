@@ -256,7 +256,6 @@ VayuSetu uses a **Pasquill-Gifford Class D Gaussian Plume Dispersion Model** to 
 ## ⚠️ Known Limitations
 - The V1 ML model is trained on Delhi NCR data only — AQI forecasting for other cities is less accurate.
 - The Gaussian plume model uses averaged wind vectors — does not account for spatial wind field variation.
-- "Report a Source" feature in Citizen Dashboard is a UI prototype; API integration pending.
 
 ---
 
@@ -266,4 +265,4 @@ This project is submitted as part of the **ET AI Hackathon 2.0**. All rights res
 ---
 
 ## 🙌 Team
-Built with ❤️ for cleaner air, faster enforcement, and smarter cities.
+Built by Aarush Goel & Lakshita Rawat for cleaner air, faster enforcement, and smarter cities.
