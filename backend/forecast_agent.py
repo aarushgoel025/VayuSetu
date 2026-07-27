@@ -16,7 +16,10 @@ if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ── Load Local V1 Model ────────────────────────────────────────────────────
-V1_MODEL_PATH = r"C:\Users\Ankit\Desktop\AQI data Delhi 2015-23\aqi_ensemble.pkl"
+# Path is relative to the project root (parent of backend/)
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_BACKEND_DIR)
+V1_MODEL_PATH = os.path.join(_PROJECT_ROOT, "vayusetu_ml", "aqi_ensemble.pkl")
 v1_pkg = None
 V1_STATIONS = []
 
